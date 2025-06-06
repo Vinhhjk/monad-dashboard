@@ -68,9 +68,11 @@ export function TransactionChart({ chartData, queueLength }: TransactionChartPro
                   type="monotone"
                   dataKey="count"
                   stroke="none"
-                  dot={dotProps => (
-                    <CustomHeadDot key={dotProps.index} {...dotProps} data={chartData} />
-                  )}                  legendType="none"
+                  dot={dotProps => {
+                    const { key, ...rest } = dotProps;
+                    return <CustomHeadDot key={key} {...rest} data={chartData} />;
+                  }}                
+                  legendType="none"
                   isAnimationActive={false}
                 />
               )}

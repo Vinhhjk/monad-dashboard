@@ -1,14 +1,14 @@
-import { ethers } from 'ethers';
-import { TxType } from '../types/transaction';
-import { MonadReceipt } from '../types/transaction';
-export function detectTransactionType(tx: ethers.TransactionResponse, receipt?: MonadReceipt): TxType {
+// import { ethers } from 'ethers';
+import { TxInfo, TxType } from '../types/transaction';
+
+export function detectTransactionType(tx: TxInfo): TxType {
   const value = tx.value;
-  const data = tx.data;
+  const data = tx.inputData 
   const to = tx.to;
-  const gasUsed = receipt?.gasUsed || BigInt(0);
+  const gasUsed = tx.txFee || BigInt(0);
 
   // Simple transfer (ETH only, no data)
-  if (value > BigInt(0) && (!data || data === '0x') && to) {
+  if (parseFloat(value) > BigInt(0) && (!data || data === '0x') && to) {
     return 'transfer';
   }
 
@@ -29,7 +29,7 @@ export function detectTransactionType(tx: ethers.TransactionResponse, receipt?: 
   // Check function signatures in data for common patterns
   if (data && data.length >= 10) {
     const methodId = data.slice(0, 10).toLowerCase();
-    
+    console.log("Gas used:", gasUsed, "Method ID:", methodId);
     // Common DEX swap signatures
     const swapSignatures = [
       '0x38ed1739', '0x7ff36ab5', '0x18cbafe5', '0x8803dbee', '0x02751cec',
@@ -52,10 +52,10 @@ export function detectTransactionType(tx: ethers.TransactionResponse, receipt?: 
   }
 
   // High gas usage might indicate complex contract interaction
-  if (gasUsed > BigInt(100000)) return 'contract';
+  if (Number(gasUsed) > 25000) return 'contract';
 
   // Has data but doesn't match known patterns
-  if (data && data !== '0x' && data.length > 2) return 'contract';
+  if (data && data !== '0x' && data.length > 1) return 'contract';
 
   return 'unknown';
 }
@@ -71,9 +71,9 @@ export function getTxTypeDisplay(type: TxType): { emoji: string; color: string; 
     case 'mint':
       return { emoji: '🪙', color: 'text-yellow-600', label: 'Mint' };
     case 'contract':
-      return { emoji: '⚙️', color: 'text-purple-600', label: 'Contract' };
+      return { emoji: '⚙️', color: 'text-purple-600', label: 'Call' };
     default:
-      return { emoji: '❓', color: 'text-gray-600', label: 'Unknown' };
+      return { emoji: '❓', color: 'text-gray-600', label: 'Other' };
   }
 }
 

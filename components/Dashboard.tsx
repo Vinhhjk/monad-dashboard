@@ -6,9 +6,9 @@ import { TransactionTable } from './TransactionTable';
 import { TransactionChart } from './TransactionChart';
 import { RateLimiter } from '../utils/RateLimiter';
 import { detectTransactionType } from '../utils/transactionUtils';
-import { TxInfo, MonadReceipt } from '../types/transaction';
+import { TxInfo } from '../types/transaction';
 import { TransactionPizza } from './TransactionPizza';
-const MONAD_RPC = 'https://testnet-rpc.monad.xyz';
+const MONAD_RPC = 'https://monad-testnet.rpc.hypersync.xyz';
 const provider = new ethers.JsonRpcProvider(MONAD_RPC);
 
 export function Dashboard() {
@@ -25,8 +25,12 @@ export function Dashboard() {
         provider.on('block', async (blockNumber) => {
             setLatestBlock(blockNumber);
             try {
-                const block = await provider.getBlock(blockNumber);
-                const txCount = block?.transactions?.length ?? 0;
+                // Fetch the full block with transactions
+                const block =  await rateLimiter.current.add(() =>
+                    provider.send('eth_getBlockByNumber', [ethers.toBeHex(blockNumber), true])
+                );
+                const txs = block?.transactions ?? [];
+                const txCount = txs.length;
     
                 setChartData(prev => {
                     const now = new Date();
@@ -34,39 +38,36 @@ export function Dashboard() {
                     const updated = [...prev, { time: label, count: txCount }];
                     return updated.slice(-10);
                 });
-                const receipts = await rateLimiter.current.add(() =>
-                    provider.send('eth_getBlockReceipts', [ethers.toBeHex(blockNumber)])
-                );
-                // console.log(`Processing block ${blockNumber} with ${receipts.length} transactions`);
-                const txsForBlock: TxInfo[] = receipts.map((receipt: MonadReceipt) => {
-                    const gasUsed = receipt.gasUsed ? Number(receipt.gasUsed) : undefined;
-                    const gasPrice = receipt.effectiveGasPrice
-                        ? ethers.formatEther(BigInt(receipt.effectiveGasPrice))
-                        : undefined;
+    
+                const txsForBlock: TxInfo[] = txs.map((tx: TxInfo) => {
+                    const gasUsed = tx.gas ? Number(tx.gas) : undefined;
+                    // console.log("gasUsed", typeof gasUsed);
+                    const gasPrice = tx.gasPrice ? ethers.formatEther(BigInt(tx.gasPrice)) : undefined;
                     let txFee: string | undefined;
-                    if (gasUsed && receipt.effectiveGasPrice) {
-                        const feeInWei = BigInt(gasUsed) * BigInt(receipt.effectiveGasPrice);
-                        txFee = ethers.formatEther(feeInWei);
+                    if (gasUsed !== undefined && tx.gasPrice) {
+                        txFee = ethers.formatEther(BigInt(gasUsed) * BigInt(tx.gasPrice));
                     }
+                
                     return {
-                        hash: receipt.transactionHash,
-                        from: receipt.from,
-                        to: receipt.to ?? '0x0',
-                        timestamp: Date.now(),
-                        blockNumber: Number(receipt.blockNumber),
-                        type: detectTransactionType(
-                            {
-                                from: receipt.from,
-                                to: receipt.to,
-                                value: BigInt(0),
-                                data: "0x",
-                            } as ethers.TransactionResponse,
-                            receipt
-                        ),
-                        gasUsed: gasUsed,
-                        gasPrice: gasPrice,
-                        txFee: txFee,
-                        inputData: "0x"
+                        hash: tx.hash,
+                        from: tx.from,
+                        to: tx.to ?? '0x0',
+                        timestamp: Number(block.timestamp) * 1000,
+                        blockNumber: Number(block.number),
+                        value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
+                        type: detectTransactionType({
+                            hash: tx.hash,
+                            from: tx.from,
+                            to: tx.to ?? '0x0',
+                            value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
+                            timestamp: Number(block.timestamp) * 1000,
+                            blockNumber: Number(block.number),
+                            inputData: tx.inputData, // use tx.input, not tx.inputData
+                            type: 'unknown', // placeholder, not used in detection
+                        }),
+                        gasUsed,
+                        gasPrice,
+                        txFee,
                     };
                 });
     
@@ -74,14 +75,13 @@ export function Dashboard() {
                     if (paused) return prev;
                     const combined = [...txsForBlock, ...prev];
                     return combined.slice(0, 50);
-                });    
+                });
                 setPizzaTxs(prev => {
                     const combined = [...txsForBlock, ...prev];
                     return pizzaBlockCount + 1 >= pizzaBlockTrigger ? [] : combined.slice(0, 100);
                 });
                 setPizzaBlockCount(prev => (prev + 1 >= pizzaBlockTrigger ? 0 : prev + 1));
     
-
             } catch (error) {
                 console.error('Error processing block:', error);
             }

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { TxInfo } from '../types/transaction';
-import { getTxTypeDisplay, formatTime, formatAddress, formatTxFee } from '../utils/transactionUtils';
+import { getTxTypeDisplay, formatTime, formatAddress, formatValue, formatTxFee } from '../utils/transactionUtils';
 
 interface TransactionTableProps {
   transactions: TxInfo[];
@@ -10,11 +10,15 @@ interface TransactionTableProps {
   onMouseLeave?: () => void;
 }
 
-export function TransactionTable({ transactions, onMouseEnter, onMouseLeave}: TransactionTableProps) {
+export function TransactionTable({ transactions, onMouseEnter, onMouseLeave }: TransactionTableProps) {
   return (
     <>
       <h2 className="text-xl font-semibold mb-4">📋 Latest Transactions ({transactions.length}/50)</h2>
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div
+        className="bg-white rounded-lg shadow-lg overflow-hidden"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >        
         <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
           <table className="w-full">
             <thead className="bg-gray-50 sticky top-0">
@@ -34,7 +38,9 @@ export function TransactionTable({ transactions, onMouseEnter, onMouseLeave}: Tr
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   To
                 </th>
-
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Value (MON)
+                </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fee
                 </th>
@@ -87,6 +93,11 @@ export function TransactionTable({ transactions, onMouseEnter, onMouseLeave}: Tr
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-900">
                         {formatAddress(tx.to)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                        <span className={`${parseFloat(tx.value) > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                          {formatValue(tx.value)}
+                        </span>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                         {tx.gasUsed ? (

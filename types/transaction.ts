@@ -12,14 +12,6 @@ export interface TxInfo {
   gasPrice?: string;
   txFee?: string;
   inputData?: string;
+  gas?: string;
 }
 
-export type MonadReceipt = {
-  transactionHash: string;
-  from: string;
-  to: string | null;
-  gasUsed?:  | number;
-  effectiveGasPrice?: string | number;
-  blockNumber: string | number;
-  // add other fields as needed
-};
