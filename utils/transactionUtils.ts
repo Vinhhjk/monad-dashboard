@@ -3,7 +3,7 @@ import { TxInfo, TxType } from '../types/transaction';
 
 export function detectTransactionType(tx: TxInfo): TxType {
   const value = tx.value;
-  const data = tx.inputData 
+  const data = tx.input 
   const to = tx.to;
   const gasUsed = tx.txFee || BigInt(0);
 
@@ -29,7 +29,8 @@ export function detectTransactionType(tx: TxInfo): TxType {
   // Check function signatures in data for common patterns
   if (data && data.length >= 10) {
     const methodId = data.slice(0, 10).toLowerCase();
-    console.log("Gas used:", gasUsed, "Method ID:", methodId);
+    console.log('Method ID:', methodId); // <-- Log the method ID here
+
     // Common DEX swap signatures
     const swapSignatures = [
       '0x38ed1739', '0x7ff36ab5', '0x18cbafe5', '0x8803dbee', '0x02751cec',
@@ -38,7 +39,7 @@ export function detectTransactionType(tx: TxInfo): TxType {
 
     // Common mint signatures
     const mintSignatures = [
-      '0x40c10f19', '0xa0712d68', '0x1249c58b',
+      '0x40c10f19', '0xa0712d68', '0x1249c58b','0xe1f29d3f','0xa6f2ae3a','0x6a627842',
     ];
 
     // Common burn signatures  

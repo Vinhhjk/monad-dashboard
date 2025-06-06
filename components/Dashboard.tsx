@@ -41,13 +41,12 @@ export function Dashboard() {
     
                 const txsForBlock: TxInfo[] = txs.map((tx: TxInfo) => {
                     const gasUsed = tx.gas ? Number(tx.gas) : undefined;
-                    // console.log("gasUsed", typeof gasUsed);
                     const gasPrice = tx.gasPrice ? ethers.formatEther(BigInt(tx.gasPrice)) : undefined;
                     let txFee: string | undefined;
                     if (gasUsed !== undefined && tx.gasPrice) {
                         txFee = ethers.formatEther(BigInt(gasUsed) * BigInt(tx.gasPrice));
                     }
-                
+
                     return {
                         hash: tx.hash,
                         from: tx.from,
@@ -62,7 +61,7 @@ export function Dashboard() {
                             value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
                             timestamp: Number(block.timestamp) * 1000,
                             blockNumber: Number(block.number),
-                            inputData: tx.inputData, // use tx.input, not tx.inputData
+                            input: tx.input, // use tx.input, not tx.inputData
                             type: 'unknown', // placeholder, not used in detection
                         }),
                         gasUsed,

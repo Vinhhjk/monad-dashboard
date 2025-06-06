@@ -11,7 +11,7 @@ export interface TxInfo {
   gasUsed?: number;
   gasPrice?: string;
   txFee?: string;
-  inputData?: string;
+  input?: string;
   gas?: string;
 }
 
