@@ -18,9 +18,30 @@ export function Dashboard() {
     const [chartData, setChartData] = useState<{ time: string; count: number }[]>([]);
     const [latestBlock, setLatestBlock] = useState<number | null>(null);
     const [paused, setPaused] = useState(false);
+    const [totalTxs, setTotalTxs] = useState<string>('Loading...');
+    const [lastQueriedBlock, setLastQueriedBlock] = useState<string>('Loading...');
+
     const rateLimiter = useRef(new RateLimiter(15));
     const pizzaBlockTrigger = 10; // Reset after 10 blocks
 
+    const fetchTotalTxs = async () => {
+        try {
+            const response = await fetch('https://api.monadfrens.fun/get-txs-count');
+            const data = await response.json();
+            const formattedNumber = new Intl.NumberFormat().format(data.totalTxs);
+            setTotalTxs(formattedNumber);
+            setLastQueriedBlock(data.lastQueriedBlock.toString());
+        } catch (error) {
+            console.error('Error fetching total transactions:', error);
+            setTotalTxs('Error loading');
+            setLastQueriedBlock('Error loading');
+        }
+    };
+    
+    // Add this new useEffect before the existing one
+    useEffect(() => {
+        fetchTotalTxs();
+    }, []);
     useEffect(() => {
         provider.on('block', async (blockNumber) => {
             setLatestBlock(blockNumber);
@@ -94,9 +115,22 @@ export function Dashboard() {
     return (
         <main className="p-6 space-y-8">
             <h1 className="text-3xl font-bold">🔥 Monad Testnet Dashboard</h1>
-            <p className="font-semibold">
-                Latest Block: <span className="font-mono">{latestBlock !== null ? latestBlock : 'Loading...'}</span>
-            </p>
+            
+            <div className="space-y-1">
+                <p className="font-semibold text-xl">
+                    Total Transactions: <span className="font-mono text-green-600">{totalTxs}</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                    Updated every hour, last update: Block {lastQueriedBlock}
+                </p>
+            </div>
+
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p className="font-semibold">
+                    Latest Block: <span className="font-mono">{latestBlock !== null ? latestBlock : 'Loading...'}</span>
+                </p>
+            </div>
             {/* Chart and Pizza side by side at the top */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <section className="lg:col-span-1">

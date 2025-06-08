@@ -29,7 +29,6 @@ export function detectTransactionType(tx: TxInfo): TxType {
   // Check function signatures in data for common patterns
   if (data && data.length >= 10) {
     const methodId = data.slice(0, 10).toLowerCase();
-    console.log('Method ID:', methodId); // <-- Log the method ID here
 
     // Common DEX swap signatures
     const swapSignatures = [
