@@ -1,425 +1,304 @@
-// app/page.tsx
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { ethers } from 'ethers';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
+import { TransactionTable } from './TransactionTable';
+import { TransactionChart } from './TransactionChart';
+import { RateLimiter } from '../utils/RateLimiter';
+import { detectTransactionType } from '../utils/transactionUtils';
+import { TxInfo } from '../types/transaction';
+import { TransactionPizza } from './TransactionPizza';
+import { SevenDayChart } from './SevenDayChart';
 
-const MONAD_RPC = 'https://testnet-rpc.monad.xyz';
+const MONAD_RPC = 'https://monad-testnet.rpc.hypersync.xyz';
 const provider = new ethers.JsonRpcProvider(MONAD_RPC);
 
-type TxType = 'transfer' | 'swap' | 'burn' | 'mint' | 'contract' | 'unknown';
+export function Dashboard() {
+    const [latestTxs, setLatestTxs] = useState<TxInfo[]>([]);
 
-interface TxInfo {
-  hash: string;
-  from: string;
-  to: string;
-  value: string;
-  timestamp: number;
-  blockNumber: number;
-  type: TxType;
-  gasUsed?: number;
-  gasPrice?: string;
-  txFee?: string;
-  inputData?: string;
-}
+    const [chartData, setChartData] = useState<{ blockNumber: string; count: number }[]>([]);
+    const [latestBlock, setLatestBlock] = useState<number | null>(null);
+    const [paused, setPaused] = useState(false);
+    const [totalTxs, setTotalTxs] = useState<string>('Loading...');
+    const [lastQueriedBlock, setLastQueriedBlock] = useState<string>('Loading...');
+    
+    // TPS related state
+    const [currentTPS, setCurrentTPS] = useState<number>(0);
+    const [avgTPS, setAvgTPS] = useState<number>(0);
+    const tpsHistory = useRef<Array<{ timestamp: number; txCount: number; blockTime: number }>>([]);
 
-// Rate limiting utility
-class RateLimiter {
-  private queue: (() => Promise<unknown>)[] = [];
-  private processing = false;
-  private readonly delay: number;
+    const rateLimiter = useRef(new RateLimiter(15));
 
-  constructor(requestsPerSecond: number = 20) {
-    this.delay = 1000 / requestsPerSecond;
-  }
-
-  async add<T>(fn: () => Promise<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.queue.push(async () => {
+    const fetchTotalTxs = async () => {
         try {
-          const result = await fn();
-          resolve(result);
+            const response = await fetch('https://api.monadfrens.fun/get-txs-count');
+            const data = await response.json();
+            const formattedNumber = new Intl.NumberFormat().format(data.totalTxs);
+            setTotalTxs(formattedNumber);
+            setLastQueriedBlock(data.lastQueriedBlock.toString());
         } catch (error) {
-          reject(error);
+            console.error('Error fetching total transactions:', error);
+            setTotalTxs('Error loading');
+            setLastQueriedBlock('Error loading');
         }
-      });
-      this.process();
-    });
-  }
-
-  private async process() {
-    if (this.processing || this.queue.length === 0) return;
-    
-    this.processing = true;
-    
-    while (this.queue.length > 0) {
-      const fn = this.queue.shift()!;
-      await fn();
-      
-      if (this.queue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, this.delay));
-      }
-    }
-    
-    this.processing = false;
-  }
-}
-const formatTxFee = (fee: string) => {
-  const num = parseFloat(fee);
-  if (num === 0) return '0';
-  if (num < 0.000001) return '<0.000001';
-  if (num < 0.001) return num.toFixed(6);
-  return num.toFixed(4);
-};
-// Transaction type detection based on heuristics
-function detectTransactionType(tx: ethers.TransactionResponse, receipt?: ethers.TransactionReceipt): TxType {
-  const value = tx.value;
-  const data = tx.data;
-  const to = tx.to;
-  const gasUsed = receipt?.gasUsed || BigInt(0);
-
-  // Simple transfer (ETH only, no data)
-  if (value > BigInt(0) && (!data || data === '0x') && to) {
-    return 'transfer';
-  }
-
-  // Contract creation (no 'to' address)
-  if (!to) {
-    return 'contract';
-  }
-
-  // Burn transaction (sending to zero address or common burn addresses)
-  const burnAddresses = [
-    '0x0000000000000000000000000000000000000000',
-    '0x000000000000000000000000000000000000dead',
-  ];
-  if (burnAddresses.includes(to.toLowerCase())) {
-    return 'burn';
-  }
-
-  // Check function signatures in data for common patterns
-  if (data && data.length >= 10) {
-    const methodId = data.slice(0, 10).toLowerCase();
-    
-    // Common DEX swap signatures
-    const swapSignatures = [
-      '0x38ed1739', // swapExactTokensForTokens
-      '0x7ff36ab5', // swapExactETHForTokens
-      '0x18cbafe5', // swapExactTokensForETH
-      '0x8803dbee', // swapTokensForExactTokens
-      '0x02751cec', // swapETHForExactTokens
-      '0x791ac947', // swapExactTokensForTokensSupportingFeeOnTransferTokens
-      '0xb6f9de95', // swapExactETHForTokensSupportingFeeOnTransferTokens
-      '0x5c11d795', // swapExactTokensForETHSupportingFeeOnTransferTokens
-      '0x128acb08', // swapTokensForExactETH
-      '0xfb3bdb41', // swapETHForExactTokens
-    ];
-
-    // Common mint signatures
-    const mintSignatures = [
-      '0x40c10f19', // mint(address,uint256)
-      '0xa0712d68', // mint(uint256)
-      '0x1249c58b', // mint()
-    ];
-
-    // Common burn signatures  
-    const burnSignatures = [
-      '0x42966c68', // burn(uint256)
-      '0x9dc29fac', // burn(address,uint256)
-      '0x8d1247ba', // burn(address,uint256,bytes)
-    ];
-
-    if (swapSignatures.includes(methodId)) {
-      return 'swap';
-    }
-    
-    if (mintSignatures.includes(methodId)) {
-      return 'mint';
-    }
-    
-    if (burnSignatures.includes(methodId)) {
-      return 'burn';
-    }
-  }
-
-  // High gas usage might indicate complex contract interaction
-  if (gasUsed > BigInt(100000)) {
-    return 'contract';
-  }
-
-  // Has data but doesn't match known patterns
-  if (data && data !== '0x' && data.length > 2) {
-    return 'contract';
-  }
-
-  return 'unknown';
-}
-
-
-// Get emoji and color for transaction type
-function getTxTypeDisplay(type: TxType): { emoji: string; color: string; label: string } {
-  switch (type) {
-    case 'transfer':
-      return { emoji: '💸', color: 'text-green-600', label: 'Transfer' };
-    case 'swap':
-      return { emoji: '🔄', color: 'text-blue-600', label: 'Swap' };
-    case 'burn':
-      return { emoji: '🔥', color: 'text-red-600', label: 'Burn' };
-    case 'mint':
-      return { emoji: '🪙', color: 'text-yellow-600', label: 'Mint' };
-    case 'contract':
-      return { emoji: '⚙️', color: 'text-purple-600', label: 'Contract' };
-    default:
-      return { emoji: '❓', color: 'text-gray-600', label: 'Unknown' };
-  }
-}
-
-export default function Home() {
-  const [latestTxs, setLatestTxs] = useState<TxInfo[]>([]);
-  const txQueue = useRef<TxInfo[]>([]);
-  const [chartData, setChartData] = useState<{ time: string; count: number }[]>([]);
-
-  const rateLimiter = useRef(new RateLimiter(15));
-
-  // Listen to new blocks and extract transactions
-  useEffect(() => {
-    provider.on('block', async (blockNumber) => {
-      try {
-        const block = await provider.getBlock(blockNumber);
-        console.log(`New block: ${blockNumber} with ${block?.transactions.length} transactions`);
-        if (!block) return;
-
-        const maxTxsPerBlock = 10;
-        const txHashes = block.transactions.slice(0, maxTxsPerBlock);
-        
-        const txPromises = txHashes.map(txHash => 
-          rateLimiter.current.add(async () => {
-            const tx = await provider.getTransaction(txHash);
-            if (!tx) return null;
-            
-            // Try to get receipt for better type detection
-            try {
-              const receipt = await provider.getTransactionReceipt(txHash);
-              return { tx, receipt };
-            } catch {
-              return { tx, receipt: null };
-            }
-          })
-        );
-        
-        const batchSize = 5;
-        const newTxs: TxInfo[] = [];
-        
-        for (let i = 0; i < txPromises.length; i += batchSize) {
-          const batch = txPromises.slice(i, i + batchSize);
-          try {
-            const results = await Promise.all(batch);
-            const batchTxs = results
-              .filter((result): result is { tx: ethers.TransactionResponse; receipt: ethers.TransactionReceipt | null } => 
-                result !== null && result.tx !== null
-              )
-              .map(({ tx, receipt }) => {
-                const txType = detectTransactionType(tx, receipt || undefined);
-                const gasUsed = receipt ? Number(receipt.gasUsed) : undefined;
-                const gasPrice = tx.gasPrice ? ethers.formatEther(tx.gasPrice) : undefined;
-                let txFee: string | undefined;
-                if (gasUsed && tx.gasPrice) {
-                  const feeInWei = BigInt(gasUsed) * tx.gasPrice;
-                  txFee = ethers.formatEther(feeInWei);
-                }
-                
-                return {
-                  hash: tx.hash,
-                  from: tx.from,
-                  to: tx.to ?? '0x0',
-                  value: ethers.formatEther(tx.value),
-                  timestamp: Date.now(),
-                  blockNumber: blockNumber,
-                  type: txType,
-                  gasUsed: gasUsed,
-                  gasPrice: gasPrice,
-                  txFee: txFee,
-                  inputData: tx.data
-                };
-              });
-            newTxs.push(...batchTxs);
-          } catch (error) {
-            console.warn(`Failed to fetch transaction batch:`, error);
-          }
-        }
-
-        txQueue.current.push(...newTxs);
-
-        setLatestTxs(prev => {
-          const updated = [...newTxs, ...prev];
-          return updated.slice(0, 50);
-        });
-
-        setChartData((prev) => {
-          const now = new Date();
-          const label = now.toLocaleTimeString();
-          const updated = [...prev, { time: label, count: block.transactions.length }];
-          return updated.slice(-10);
-        });
-      } catch (error) {
-        console.error('Error processing block:', error);
-      }
-    });
-
-    return () => {
-      provider.removeAllListeners();
     };
-  }, []);
 
-
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const formatValue = (value: string) => {
-    const num = parseFloat(value);
-    if (num === 0) return '0';
-    if (num < 0.001) return '<0.001';
-    return num.toFixed(4);
-  };
-
-  return (
-    <main className="p-6 space-y-8">
-      <h1 className="text-3xl font-bold">🔥 Monad Testnet Dashboard</h1>
-
-      {/* Main content grid - transactions on left, chart on right */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left side - Latest Transactions */}
-        <section className="lg:col-span-1">
-          <h2 className="text-xl font-semibold mb-4">📋 Latest Transactions ({latestTxs.length}/50)</h2>
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Time
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Hash
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      From
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      To
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Value (MON)
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fee
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {latestTxs.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                        Waiting for transactions...
-                      </td>
-                    </tr>
-                  ) : (
-                    latestTxs.map((tx, index) => {
-                      const typeDisplay = getTxTypeDisplay(tx.type);
-                      return (
-                        <motion.tr
-                          key={tx.hash}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.3, delay: index < 5 ? index * 0.1 : 0 }}
-                          className={`hover:bg-gray-50 ${index < 3 ? 'bg-blue-50' : ''}`}
-                        >
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                            {formatTime(tx.timestamp)}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-900">
-                            <a
-                              href={`https://testnet.monadscan.com/tx/${tx.hash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              {formatAddress(tx.hash)}
-                            </a>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm">{typeDisplay.emoji}</span>
-                              <span className={`text-xs font-medium ${typeDisplay.color}`}>
-                                {typeDisplay.label}
-                              </span>
+    const calculateTPS = (txCount: number, blockTimestamp: number) => {
+        
+        // Add current block data to history with actual block timestamp
+        tpsHistory.current.push({
+            timestamp: blockTimestamp * 1000, // Convert to milliseconds
+            txCount,
+            blockTime: 0 // We'll calculate this differently
+        });
+    
+        // Keep only last 10 blocks for calculation
+        if (tpsHistory.current.length > 10) {
+            tpsHistory.current = tpsHistory.current.slice(-10);
+        }
+    
+        // Calculate block time using actual block timestamps
+        let actualBlockTime = 1; // Default fallback
+        if (tpsHistory.current.length >= 2) {
+            const currentBlock = tpsHistory.current[tpsHistory.current.length - 1];
+            const previousBlock = tpsHistory.current[tpsHistory.current.length - 2];
+            actualBlockTime = (currentBlock.timestamp - previousBlock.timestamp) / 1000; // Convert to seconds
+            
+            // Ensure reasonable block time (avoid division by zero or negative values)
+            if (actualBlockTime <= 0 || actualBlockTime > 60) {
+                actualBlockTime = 1; // Fallback to 1 second
+            }
+        }
+    
+        // Calculate current TPS using actual block time
+        const currentBlockTPS = actualBlockTime > 0 ? txCount / actualBlockTime : 0;
+        setCurrentTPS(currentBlockTPS);
+    
+        // Calculate average TPS over last few blocks using actual timestamps
+        if (tpsHistory.current.length >= 2) {
+            const totalTxs = tpsHistory.current.reduce((sum, block) => sum + block.txCount, 0);
+            const timeSpan = (tpsHistory.current[tpsHistory.current.length - 1].timestamp - 
+                             tpsHistory.current[0].timestamp) / 1000; // Convert to seconds
+            
+            const avgBlockTPS = timeSpan > 0 ? totalTxs / timeSpan : 0;
+            setAvgTPS(avgBlockTPS);
+        }
+    };
+    
+    useEffect(() => {
+        fetchTotalTxs();
+    }, []);
+    
+    useEffect(() => {
+        const handleNewBlock = async (blockNumber: number) => {
+            setLatestBlock(blockNumber);
+            try {
+                const block = await rateLimiter.current.add(() =>
+                    provider.send('eth_getBlockByNumber', [ethers.toBeHex(blockNumber), true])
+                );
+                const txs = block?.transactions ?? [];
+                const txCount = txs.length;
+                const currentBlockTimestamp = Number(block.timestamp);
+                
+                calculateTPS(txCount, currentBlockTimestamp);
+    
+                setChartData(prev => {
+                    // Use block number instead of time
+                    const blockNumberStr = blockNumber.toString();
+                    const updated = [...prev, { blockNumber: blockNumberStr, count: txCount }];
+                    return updated.slice(-10); // This handles the 10-block window
+                });
+                
+                const txsForBlock: TxInfo[] = txs.map((tx: TxInfo) => {
+                    const gasUsed = tx.gas ? Number(tx.gas) : undefined;
+                    const gasPrice = tx.gasPrice ? ethers.formatEther(BigInt(tx.gasPrice)) : undefined;
+                    let txFee: string | undefined;
+                    if (gasUsed !== undefined && tx.gasPrice) {
+                        txFee = ethers.formatEther(BigInt(gasUsed) * BigInt(tx.gasPrice));
+                    }
+    
+                    return {
+                        hash: tx.hash,
+                        from: tx.from,
+                        to: tx.to ?? '0x0',
+                        timestamp: Number(block.timestamp) * 1000,
+                        blockNumber: Number(block.number),
+                        value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
+                        type: detectTransactionType({
+                            hash: tx.hash,
+                            from: tx.from,
+                            to: tx.to ?? '0x0',
+                            value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
+                            timestamp: Number(block.timestamp) * 1000,
+                            blockNumber: Number(block.number),
+                            input: tx.input,
+                            type: 'unknown',
+                        }),
+                        gasUsed,
+                        gasPrice,
+                        txFee,
+                    };
+                });
+                setLatestTxs(prev => {
+                    if (paused) return prev;
+                    const combined = [...txsForBlock, ...prev];
+                    return combined.slice(0, 50);
+                });
+    
+    
+            } catch (error) {
+                console.error('Error processing block:', error);
+            }
+        };
+    
+        provider.on('block', handleNewBlock);
+    
+        return () => {
+            provider.removeAllListeners();
+        };
+    }, [paused]); // Remove pizzaBlockCount from dependencies
+    
+    
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+            {/* Background Pattern */}
+            <div 
+                className="absolute inset-0 opacity-20"
+                style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239333ea' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }}
+            ></div>
+            
+            <main className="relative z-10 p-6 space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-4">
+                    <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-200 via-purple-100 to-white bg-clip-text text-transparent">
+                        🔥 Monad Testnet Dashboard
+                    </h1>
+                    <div className="w-24 h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto rounded-full"></div>
+                </div>
+                
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Total Transactions Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">📊</span>
                             </div>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-900">
-                            {formatAddress(tx.from)}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs font-mono text-gray-900">
-                            {formatAddress(tx.to)}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                            <span className={`${parseFloat(tx.value) > 0 ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
-                              {formatValue(tx.value)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                            {tx.gasUsed ? (
-                              <span className="text-xs bg-gray-100 px-1 py-1 rounded">
-                                {tx.txFee ? formatTxFee(tx.txFee) : 'N/A'}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                        </motion.tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Total Transactions</h3>
+                                <p className="text-3xl font-bold text-white font-mono">{totalTxs}</p>
+                            </div>
+                        </div>
+                        <p className="text-purple-300 text-sm">
+                            Updated every hour • Block {lastQueriedBlock}
+                        </p>
+                    </div>
 
-        {/* Right side - Chart */}
-        <section className="lg:col-span-1">
-          <h2 className="text-xl font-semibold mb-2">📊 TX Volume (last 10 blocks)</h2>
-          <div className="mb-4 text-sm text-gray-600">
-            Queue: {txQueue.current.length} transactions pending
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <ResponsiveContainer width="100%" height={500}>
-              <BarChart data={chartData}>
-                <XAxis 
-                  dataKey="time" 
-                  tick={{ fontSize: 12 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#6366f1" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          
-        </section>
-      </div>
-    </main>
-  );
+                    {/* Latest Block Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">⛓️</span>
+                            </div>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Latest Block</h3>
+                                <p className="text-3xl font-bold text-white font-mono">
+                                    {latestBlock !== null ? latestBlock.toLocaleString() : 'Loading...'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                            <span className="text-green-300 text-sm">Live</span>
+                        </div>
+                    </div>
+
+                    {/* TPS Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">⚡</span>
+                            </div>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Current TPS</h3>
+                                <p className="text-3xl font-bold text-white font-mono">
+                                    {currentTPS.toFixed(1)}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-green-300 text-sm">
+                                Avg: {avgTPS.toFixed(1)} TPS
+                            </p>
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                                <span className="text-green-300 text-xs">Real-time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 7-Day Chart Card */}
+                    <div className="md:col-span-2 lg:col-span-1">
+                        <SevenDayChart />
+                    </div>
+                </div>
+
+                {/* Chart and Pizza Section */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    {/* Transaction Activity Chart - Fixed width to prevent scaling issues */}
+                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                        <div className="flex items-center space-x-3 mb-6">
+                            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">📈</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Transaction Activity</h2>
+                        </div>
+                        <div className="w-full">
+                            <TransactionChart 
+                                chartData={chartData} 
+                            />
+                        </div>
+                    </section>
+                    
+                    {/* Transaction Pizza - Allow it to scale independently */}
+                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                        <div className="flex items-center space-x-3 mb-6">
+                            <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">🍕</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Transaction Types</h2>
+                        </div>
+                        <div className="w-full overflow-x-auto">
+                        <TransactionPizza chartData={chartData} latestTxs={latestTxs} />
+                        </div>
+                    </section>
+                </div>
+                {/* Transactions Table */}
+                <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">📋</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Recent Transactions</h2>
+                        </div>
+                        {paused && (
+                            <div className="flex items-center space-x-2 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-500/30">
+                                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                                <span className="text-yellow-300 text-sm">Paused</span>
+                            </div>
+                        )}
+                    </div>
+                    <TransactionTable
+                        transactions={latestTxs}
+                        onMouseEnter={() => setPaused(true)}
+                        onMouseLeave={() => setPaused(false)}
+                    />            
+                </section>
+            </main>
+        </div>
+    );
 }
+

@@ -8,21 +8,27 @@ import { RateLimiter } from '../utils/RateLimiter';
 import { detectTransactionType } from '../utils/transactionUtils';
 import { TxInfo } from '../types/transaction';
 import { TransactionPizza } from './TransactionPizza';
+import { SevenDayChart } from './SevenDayChart';
+import { FaXTwitter } from "react-icons/fa6";
+
 const MONAD_RPC = 'https://monad-testnet.rpc.hypersync.xyz';
 const provider = new ethers.JsonRpcProvider(MONAD_RPC);
 
 export function Dashboard() {
     const [latestTxs, setLatestTxs] = useState<TxInfo[]>([]);
-    const [pizzaTxs, setPizzaTxs] = useState<TxInfo[]>([]);
-    const [pizzaBlockCount, setPizzaBlockCount] = useState(0);
-    const [chartData, setChartData] = useState<{ time: string; count: number }[]>([]);
+
+    const [chartData, setChartData] = useState<{ blockNumber: string; count: number }[]>([]);
     const [latestBlock, setLatestBlock] = useState<number | null>(null);
     const [paused, setPaused] = useState(false);
     const [totalTxs, setTotalTxs] = useState<string>('Loading...');
     const [lastQueriedBlock, setLastQueriedBlock] = useState<string>('Loading...');
+    
+    // TPS related state
+    const [currentTPS, setCurrentTPS] = useState<number>(0);
+    const [avgTPS, setAvgTPS] = useState<number>(0);
+    const tpsHistory = useRef<Array<{ timestamp: number; txCount: number; blockTime: number }>>([]);
 
     const rateLimiter = useRef(new RateLimiter(15));
-    const pizzaBlockTrigger = 10; // Reset after 10 blocks
 
     const fetchTotalTxs = async () => {
         try {
@@ -37,29 +43,73 @@ export function Dashboard() {
             setLastQueriedBlock('Error loading');
         }
     };
+
+    const calculateTPS = (txCount: number, blockTimestamp: number) => {
+        
+        // Add current block data to history with actual block timestamp
+        tpsHistory.current.push({
+            timestamp: blockTimestamp * 1000, // Convert to milliseconds
+            txCount,
+            blockTime: 0 // We'll calculate this differently
+        });
     
-    // Add this new useEffect before the existing one
+        // Keep only last 10 blocks for calculation
+        if (tpsHistory.current.length > 10) {
+            tpsHistory.current = tpsHistory.current.slice(-10);
+        }
+    
+        // Calculate block time using actual block timestamps
+        let actualBlockTime = 1; // Default fallback
+        if (tpsHistory.current.length >= 2) {
+            const currentBlock = tpsHistory.current[tpsHistory.current.length - 1];
+            const previousBlock = tpsHistory.current[tpsHistory.current.length - 2];
+            actualBlockTime = (currentBlock.timestamp - previousBlock.timestamp) / 1000; // Convert to seconds
+            
+            // Ensure reasonable block time (avoid division by zero or negative values)
+            if (actualBlockTime <= 0 || actualBlockTime > 60) {
+                actualBlockTime = 1; // Fallback to 1 second
+            }
+        }
+    
+        // Calculate current TPS using actual block time
+        const currentBlockTPS = actualBlockTime > 0 ? txCount / actualBlockTime : 0;
+        setCurrentTPS(currentBlockTPS);
+    
+        // Calculate average TPS over last few blocks using actual timestamps
+        if (tpsHistory.current.length >= 2) {
+            const totalTxs = tpsHistory.current.reduce((sum, block) => sum + block.txCount, 0);
+            const timeSpan = (tpsHistory.current[tpsHistory.current.length - 1].timestamp - 
+                             tpsHistory.current[0].timestamp) / 1000; // Convert to seconds
+            
+            const avgBlockTPS = timeSpan > 0 ? totalTxs / timeSpan : 0;
+            setAvgTPS(avgBlockTPS);
+        }
+    };
+    
     useEffect(() => {
         fetchTotalTxs();
     }, []);
+    
     useEffect(() => {
-        provider.on('block', async (blockNumber) => {
+        const handleNewBlock = async (blockNumber: number) => {
             setLatestBlock(blockNumber);
             try {
-                // Fetch the full block with transactions
-                const block =  await rateLimiter.current.add(() =>
+                const block = await rateLimiter.current.add(() =>
                     provider.send('eth_getBlockByNumber', [ethers.toBeHex(blockNumber), true])
                 );
                 const txs = block?.transactions ?? [];
                 const txCount = txs.length;
+                const currentBlockTimestamp = Number(block.timestamp);
+                
+                calculateTPS(txCount, currentBlockTimestamp);
     
                 setChartData(prev => {
-                    const now = new Date();
-                    const label = now.toLocaleTimeString();
-                    const updated = [...prev, { time: label, count: txCount }];
-                    return updated.slice(-10);
+                    // Use block number instead of time
+                    const blockNumberStr = blockNumber.toString();
+                    const updated = [...prev, { blockNumber: blockNumberStr, count: txCount }];
+                    return updated.slice(-10); // This handles the 10-block window
                 });
-    
+                
                 const txsForBlock: TxInfo[] = txs.map((tx: TxInfo) => {
                     const gasUsed = tx.gas ? Number(tx.gas) : undefined;
                     const gasPrice = tx.gasPrice ? ethers.formatEther(BigInt(tx.gasPrice)) : undefined;
@@ -67,7 +117,7 @@ export function Dashboard() {
                     if (gasUsed !== undefined && tx.gasPrice) {
                         txFee = ethers.formatEther(BigInt(gasUsed) * BigInt(tx.gasPrice));
                     }
-
+    
                     return {
                         hash: tx.hash,
                         from: tx.from,
@@ -82,76 +132,193 @@ export function Dashboard() {
                             value: tx.value ? ethers.formatEther(BigInt(tx.value)) : "0",
                             timestamp: Number(block.timestamp) * 1000,
                             blockNumber: Number(block.number),
-                            input: tx.input, // use tx.input, not tx.inputData
-                            type: 'unknown', // placeholder, not used in detection
+                            input: tx.input,
+                            type: 'unknown',
                         }),
                         gasUsed,
                         gasPrice,
                         txFee,
                     };
                 });
-    
                 setLatestTxs(prev => {
                     if (paused) return prev;
                     const combined = [...txsForBlock, ...prev];
                     return combined.slice(0, 50);
                 });
-                setPizzaTxs(prev => {
-                    const combined = [...txsForBlock, ...prev];
-                    return pizzaBlockCount + 1 >= pizzaBlockTrigger ? [] : combined.slice(0, 100);
-                });
-                setPizzaBlockCount(prev => (prev + 1 >= pizzaBlockTrigger ? 0 : prev + 1));
+    
     
             } catch (error) {
                 console.error('Error processing block:', error);
             }
-        });
+        };
+    
+        provider.on('block', handleNewBlock);
     
         return () => {
             provider.removeAllListeners();
         };
-    }, [pizzaBlockCount]);
-
+    }, [paused]); // Remove pizzaBlockCount from dependencies
+    
+    
     return (
-        <main className="p-6 space-y-8">
-            <h1 className="text-3xl font-bold">🔥 Monad Testnet Dashboard</h1>
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+            {/* Background Pattern */}
+            <div 
+                className="absolute inset-0 opacity-20"
+                style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239333ea' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }}
+            ></div>
             
-            <div className="space-y-1">
-                <p className="font-semibold text-xl">
-                    Total Transactions: <span className="font-mono text-green-600">{totalTxs}</span>
-                </p>
-                <p className="text-sm text-gray-500">
-                    Updated every hour, last update: Block {lastQueriedBlock}
-                </p>
-            </div>
+            <main className="relative z-10 p-6 space-y-8">
+                {/* Header */}
+                <header className="flex items-center justify-between">
+                    {/* Left side - Monad Frens */}
+                    <div className="flex items-center space-x-3">
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-200 via-purple-100 to-white bg-clip-text text-transparent">
+                            Monad Frens
+                        </h1>
+                    </div>
+                    
+                    <a 
+                        href="https://x.com/WagmiArc" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-white hover:text-purple-300 transition-colors duration-200 p-2 rounded-lg hover:bg-white/10"
+                    >
+                        <FaXTwitter size={24} />
+                    </a>
+                </header>
 
+                {/* Main Title Section */}
+                <div className="text-center space-y-4">
+                    <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-200 via-purple-100 to-white bg-clip-text text-transparent">
+                        🔥 Monad Testnet Dashboard
+                    </h2>
+                    <div className="w-24 h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto rounded-full"></div>
+                </div>
+                
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Total Transactions Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">📊</span>
+                            </div>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Total Transactions</h3>
+                                <p className="text-3xl font-bold text-white font-mono">{totalTxs}</p>
+                            </div>
+                        </div>
+                        <p className="text-purple-300 text-sm">
+                            Updated every hour • Block {lastQueriedBlock}
+                        </p>
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <p className="font-semibold">
-                    Latest Block: <span className="font-mono">{latestBlock !== null ? latestBlock : 'Loading...'}</span>
-                </p>
-            </div>
-            {/* Chart and Pizza side by side at the top */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <section className="lg:col-span-1">
-                    <TransactionChart 
-                        chartData={chartData} 
-                        queueLength={pizzaTxs.length} 
-                    />
+                    {/* Latest Block Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">⛓️</span>
+                            </div>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Latest Block</h3>
+                                <p className="text-3xl font-bold text-white font-mono">
+                                    {latestBlock !== null ? latestBlock.toLocaleString() : 'Loading...'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                            <span className="text-green-300 text-sm">Live</span>
+                        </div>
+                    </div>
+
+                    {/* TPS Card */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl h-[200px] flex flex-col justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                                <span className="text-2xl">⚡</span>
+                            </div>
+                            <div>
+                                <h3 className="text-purple-200 text-sm font-medium">Current TPS</h3>
+                                <p className="text-3xl font-bold text-white font-mono">
+                                    {currentTPS.toFixed(1)}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-green-300 text-sm">
+                                Avg: {avgTPS.toFixed(1)} TPS
+                            </p>
+                            <div className="flex items-center">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                                <span className="text-green-300 text-xs">Real-time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 7-Day Chart Card */}
+                    <div className="md:col-span-2 lg:col-span-1">
+                        <SevenDayChart />
+                    </div>
+                </div>
+
+                {/* Chart and Pizza Section */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    {/* Transaction Activity Chart - Fixed width to prevent scaling issues */}
+                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                        <div className="flex items-center space-x-3 mb-6">
+                            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">📈</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Transaction Activity</h2>
+                        </div>
+                        <div className="w-full">
+                            <TransactionChart 
+                                chartData={chartData} 
+                            />
+                        </div>
+                    </section>
+                    
+                    {/* Transaction Pizza - Allow it to scale independently */}
+                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                        <div className="flex items-center space-x-3 mb-6">
+                        <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">🍕</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Transaction Types</h2>
+                        </div>
+                        <div className="w-full overflow-x-auto">
+                        <TransactionPizza chartData={chartData} latestTxs={latestTxs} />
+                        </div>
+                    </section>
+                </div>
+                {/* Transactions Table */}
+                <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">📋</span>
+                            </div>
+                            <h2 className="text-xl font-semibold text-white">Recent Transactions</h2>
+                        </div>
+                        {paused && (
+                            <div className="flex items-center space-x-2 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-500/30">
+                                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                                <span className="text-yellow-300 text-sm">Paused</span>
+                            </div>
+                        )}
+                    </div>
+                    <TransactionTable
+                        transactions={latestTxs}
+                        onMouseEnter={() => setPaused(true)}
+                        onMouseLeave={() => setPaused(false)}
+                    />            
                 </section>
-                <section className="lg:col-span-1 flex items-center justify-center">
-                    <TransactionPizza chartData={chartData} latestTxs={pizzaTxs} />
-                </section>
-            </div>
-
-            {/* Transactions Table below */}
-            <section>
-                <TransactionTable
-                    transactions={latestTxs}
-                    onMouseEnter={() => setPaused(true)}
-                    onMouseLeave={() => setPaused(false)}
-                />            
-            </section>
-        </main>
+            </main>
+        </div>
     );
 }
+
