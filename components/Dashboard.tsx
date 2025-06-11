@@ -288,7 +288,7 @@ export function Dashboard() {
                         <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
                                 <span className="text-lg">🍕</span>
                             </div>
-                            <h2 className="text-xl font-semibold text-white">Transaction Types</h2>
+                            <h2 className="text-xl font-semibold text-white">Monad Pizza?</h2>
                         </div>
                         <div className="w-full overflow-x-auto">
                         <TransactionPizza chartData={chartData} latestTxs={latestTxs} />

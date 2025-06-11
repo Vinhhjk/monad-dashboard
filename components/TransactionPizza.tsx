@@ -115,7 +115,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
     <div className="flex flex-col items-center space-y-4">
       {/* Header */}
       <div className="text-center">
-        <h3 className="text-lg font-semibold text-white mb-2">Transaction Distribution</h3>
+        <h3 className="text-lg font-semibold text-white mb-2">Pizza Pizza Pizza...</h3>
       </div>
 
       {/* Pizza and Legend Side by Side */}
