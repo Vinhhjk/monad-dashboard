@@ -7,7 +7,7 @@ import { TransactionChart } from './TransactionChart';
 import { RateLimiter } from '../utils/RateLimiter';
 import { detectTransactionType } from '../utils/transactionUtils';
 import { TxInfo } from '../types/transaction';
-import { TransactionPizza } from './TransactionPizza';
+import { TransactionPizza, TransactionPizzaGif } from './TransactionPizza';
 import { SevenDayChart } from './SevenDayChart';
 import { FaXTwitter } from "react-icons/fa6";
 
@@ -17,12 +17,12 @@ const provider = new ethers.JsonRpcProvider(MONAD_RPC);
 export function Dashboard() {
     const [latestTxs, setLatestTxs] = useState<TxInfo[]>([]);
 
-    const [chartData, setChartData] = useState<{ blockNumber: string; count: number }[]>([]);
+    const [chartData, setChartData] = useState<{ blockNumber: string; count: number; totalFees?: number }[]>([]);
     const [latestBlock, setLatestBlock] = useState<number | null>(null);
     const [paused, setPaused] = useState(false);
     const [totalTxs, setTotalTxs] = useState<string>('Loading...');
     const [lastQueriedBlock, setLastQueriedBlock] = useState<string>('Loading...');
-    
+    const [totalFeesLast10Blocks, setTotalFeesLast10Blocks] = useState<number>(0)
     // TPS related state
     const [currentTPS, setCurrentTPS] = useState<number>(0);
     const [avgTPS, setAvgTPS] = useState<number>(0);
@@ -102,12 +102,32 @@ export function Dashboard() {
                 const currentBlockTimestamp = Number(block.timestamp);
                 
                 calculateTPS(txCount, currentBlockTimestamp);
-    
+        
+                // Calculate total fees for this block
+                const blockTotalFees = txs.reduce((sum: number, tx: { gas?: string; gasPrice?: string }) => {
+                    const gasUsed = tx.gas ? Number(tx.gas) : 0;
+                    const gasPrice = tx.gasPrice ? BigInt(tx.gasPrice) : BigInt(0);
+                    if (gasUsed > 0 && gasPrice > 0) {
+                        const feeInEther = parseFloat(ethers.formatEther(BigInt(gasUsed) * gasPrice));
+                        return sum + feeInEther;
+                    }
+                    return sum;
+                }, 0);
+        
                 setChartData(prev => {
-                    // Use block number instead of time
                     const blockNumberStr = blockNumber.toString();
-                    const updated = [...prev, { blockNumber: blockNumberStr, count: txCount }];
-                    return updated.slice(-10); // This handles the 10-block window
+                    const updated = [...prev, { 
+                        blockNumber: blockNumberStr, 
+                        count: txCount,
+                        totalFees: blockTotalFees 
+                    }];
+                    const last10 = updated.slice(-10);
+                    
+                    // Calculate total fees for last 10 blocks
+                    const totalFees = last10.reduce((sum, block) => sum + (block.totalFees || 0), 0);
+                    setTotalFeesLast10Blocks(totalFees);
+                    
+                    return last10;
                 });
                 
                 const txsForBlock: TxInfo[] = txs.map((tx: TxInfo) => {
@@ -117,7 +137,7 @@ export function Dashboard() {
                     if (gasUsed !== undefined && tx.gasPrice) {
                         txFee = ethers.formatEther(BigInt(gasUsed) * BigInt(tx.gasPrice));
                     }
-    
+                    
                     return {
                         hash: tx.hash,
                         from: tx.from,
@@ -140,18 +160,18 @@ export function Dashboard() {
                         txFee,
                     };
                 });
+                
                 setLatestTxs(prev => {
                     if (paused) return prev;
                     const combined = [...txsForBlock, ...prev];
                     return combined.slice(0, 50);
                 });
-    
-    
+        
             } catch (error) {
                 console.error('Error processing block:', error);
             }
         };
-    
+        
         provider.on('block', handleNewBlock);
     
         return () => {
@@ -269,29 +289,46 @@ export function Dashboard() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                     {/* Transaction Activity Chart - Fixed width to prevent scaling issues */}
                     <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
-                        <div className="flex items-center space-x-3 mb-6">
-                            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                                <span className="text-lg">📈</span>
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                    <span className="text-lg">📈</span>
+                                </div>
+                                <h2 className="text-xl font-semibold text-white">Transaction Activity</h2>
                             </div>
-                            <h2 className="text-xl font-semibold text-white">Transaction Activity</h2>
                         </div>
                         <div className="w-full">
-                            <TransactionChart 
-                                chartData={chartData} 
-                            />
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-purple-300 text-sm">Last 10 Blocks • Real-time transaction volume by block</p>
+                            
+                            {/* Total Fees Counter - moved here */}
+                            <div className="flex items-center space-x-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 px-3 py-1 rounded-full border border-orange-500/30">
+                                <span className="text-orange-400 text-sm">⛽</span>
+                                <span className="text-orange-300 text-sm font-medium"> 
+                                    Gas used: {totalFeesLast10Blocks.toFixed(4)} MON
+                                </span>
+                            </div>
+                        </div>
+                        <TransactionChart 
+                            chartData={chartData} 
+                        />
                         </div>
                     </section>
                     
-                    {/* Transaction Pizza - Allow it to scale independently */}
-                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+                    {/* Transaction Pizza */}
+                    <section className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl relative overflow-visible">
                         <div className="flex items-center space-x-3 mb-6">
-                        <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-                                <span className="text-lg">🍕</span>
+                            <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                            <span className="text-lg">🍕</span>
                             </div>
                             <h2 className="text-xl font-semibold text-white">Monad Pizza?</h2>
                         </div>
+                        
+                        {/* GIF overlays the entire section */}
+                        <TransactionPizzaGif chartData={chartData} latestTxs={latestTxs} />
+                        
                         <div className="w-full overflow-x-auto">
-                        <TransactionPizza chartData={chartData} latestTxs={latestTxs} />
+                            <TransactionPizza chartData={chartData} latestTxs={latestTxs} />
                         </div>
                     </section>
                 </div>

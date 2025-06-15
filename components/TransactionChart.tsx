@@ -4,8 +4,9 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { useMemo } from 'react';
 
 interface TransactionChartProps {
-  chartData: { blockNumber: string; count: number }[];
+  chartData: { blockNumber: string; count: number; totalFees?: number }[];
 }
+
 
 // Custom tooltip with proper typing
 interface TooltipProps {
