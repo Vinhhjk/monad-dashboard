@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 interface TransactionChartProps {
   chartData: { blockNumber: string; count: number; totalFees?: number }[];
+  totalFees?: number;
 }
 
 
@@ -38,8 +39,8 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   return null;
 };
 
-export function TransactionChart({ chartData }: TransactionChartProps) {
-    // Memoize calculations to prevent unnecessary recalculations
+export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartProps) {
+  // Memoize calculations to prevent unnecessary recalculations
     const { maxValue, totalTx, avgTx } = useMemo(() => {
         const max = Math.max(...chartData.map(d => d.count), 1);
         const total = chartData.reduce((sum, d) => sum + d.count, 0);
@@ -61,14 +62,21 @@ export function TransactionChart({ chartData }: TransactionChartProps) {
     
     return (
       <div className="space-y-4">
-        {/* Header with stats */}
+        {/* Header with stats - UPDATED */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-white">Last 10 Blocks</h3>
             <p className="text-purple-300 text-sm">Real-time transaction volume by block</p>
           </div>
+          
+          {/* Total Fees Counter */}
+          <div className="flex items-center space-x-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 px-3 py-1 rounded-full border border-orange-500/30">
+            <span className="text-orange-400 text-sm">⛽</span>
+            <span className="text-orange-300 text-sm font-medium">
+              Gas used: {totalFees.toFixed(4)} MON
+            </span>
+          </div>
         </div>
-
         {/* Chart container with modern styling */}
         <div className="relative">
           {/* Background grid effect */}

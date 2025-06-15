@@ -298,19 +298,9 @@ export function Dashboard() {
                             </div>
                         </div>
                         <div className="w-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <p className="text-purple-300 text-sm">Last 10 Blocks • Real-time transaction volume by block</p>
-                            
-                            {/* Total Fees Counter - moved here */}
-                            <div className="flex items-center space-x-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 px-3 py-1 rounded-full border border-orange-500/30">
-                                <span className="text-orange-400 text-sm">⛽</span>
-                                <span className="text-orange-300 text-sm font-medium"> 
-                                    Gas used: {totalFeesLast10Blocks.toFixed(4)} MON
-                                </span>
-                            </div>
-                        </div>
                         <TransactionChart 
-                            chartData={chartData} 
+                            chartData={chartData}
+                            totalFees={totalFeesLast10Blocks}
                         />
                         </div>
                     </section>
