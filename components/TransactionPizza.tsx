@@ -9,7 +9,7 @@ interface TransactionPizzaProps {
   maxTx?: number;
 }
 
-// Map transaction types to colors with modern gradients + WTF elements
+// Map transaction types to colors with original theme (no purple)
 const txTypeColors: Record<TxType, { color: string; gradient: string; name: string; icon: string; wtfIcon: string; sound: string }> = {
   transfer: { 
     color: '#10b981', 
@@ -62,12 +62,12 @@ const txTypeColors: Record<TxType, { color: string; gradient: string; name: stri
 };
 
 const pizzaFlavors = [
-  "🍕 Classic Pepperoni",
-  "🧀 Cheese Explosion", 
-  "🍄 Mushroom Madness",
-  "🌶️ Spicy Supreme",
-  "🥓 Bacon Bonanza",
-  "🍍 Pineapple Chaos",
+  "🍕 Purple Pepperoni",
+  "🧀 Mystic Cheese", 
+  "🍄 Magic Mushroom",
+  "🌶️ Violet Supreme",
+  "🥓 Cosmic Bacon",
+  "🍍 Ethereal Pineapple",
   "🐙 Tentacle Special",
   "🦄 Unicorn Delight"
 ];
@@ -100,8 +100,8 @@ const gifLevels = [
     maxLevel: 99,
     src: "/nyan_chog.gif",
     alt: "Level 1",
-    size: "w-24 h-24",
-    glowColor: "rgba(0, 255, 0, 0.5)", // Green glow
+    size: "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24",
+    glowColor: "rgba(168, 85, 247, 0.5)", // Purple glow
     animationDuration: "1.2s"
   },
   {
@@ -109,8 +109,8 @@ const gifLevels = [
     maxLevel: 149,
     src: "/single_cute.gif",
     alt: "Single Cute",
-    size: "w-16 h-16",
-    glowColor: "rgba(255, 192, 203, 0.5)", // Pink glow
+    size: "w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16",
+    glowColor: "rgba(139, 92, 246, 0.5)", // Violet glow
     animationDuration: "1s"
   },
   {
@@ -118,8 +118,8 @@ const gifLevels = [
     maxLevel: 199,
     src: "/frens_band.gif",
     alt: "Frens Band",
-    size: "w-48 h-20",
-    glowColor: "rgba(255, 255, 255, 0.5)", // White glow
+    size: "w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20",
+    glowColor: "rgba(192, 132, 252, 0.5)", // Light purple glow
     animationDuration: "0.8s"
   },
   {
@@ -127,8 +127,8 @@ const gifLevels = [
     maxLevel: 209,
     src: "/molandak.webp",
     alt: "Molandak",
-    size: "w-24 h-24",
-    glowColor: "rgba(255, 165, 0, 0.8)", // Orange glow
+    size: "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24",
+    glowColor: "rgba(124, 58, 237, 0.8)", // Deep purple glow
     animationDuration: "0.6s"
   },
 ];
@@ -180,7 +180,11 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
 
   // Use chartData as the source of truth
   const totalTx = chartData.reduce((sum, d) => sum + d.count, 0);
-  const pizzaSize = Math.max(200, Math.min(300, 200 + (totalTx / maxTx) * 100));
+  
+  // Responsive pizza size based on screen size
+  const basePizzaSize = 200; // Keep original size
+  const maxPizzaSize = 300; // Keep original size
+  const pizzaSize = Math.max(basePizzaSize, Math.min(maxPizzaSize, basePizzaSize + (totalTx / maxTx) * 100));
   const toppingCount = Math.floor(totalTx / 15);
 
   // Calculate total gas spent from recent transactions
@@ -191,13 +195,11 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
   }, 0);
 
   // Gas factor - normalize gas to contribute to heat (adjust multiplier as needed)
-  const gasHeatFactor = Math.round(totalGasSpent * 1000); // Adjust multiplier to taste
-  // console.log('gas heatlth', gasHeatFactor);
+  const gasHeatFactor = Math.round(totalGasSpent * 1000);
   // Calculate WTF Level as percentage - NOW INCLUDES GAS!
   const wtfLevel = Math.round(((totalTx + gasHeatFactor) / maxTx) * 100);
 
-
-  // Check for pizza explosion when over 250%
+  // Check for pizza explosion when over 210%
   useEffect(() => {
     if (wtfLevel >=210 && !isExploding) {
       setIsExploding(true);
@@ -303,7 +305,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
             cx={x}
             cy={y}
             r={size}
-            fill={isExploding ? '#8B0000' : colorInfo.color} // Dark red when exploding
+            fill={isExploding ? '#8B0000' : colorInfo.color} // Keep original colors
             opacity={isExploding ? "0.9" : "0.85"}
             className={`${toppingAnimation || isExploding ? 'animate-bounce' : ''}`}
             style={{
@@ -326,6 +328,38 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
             }}
           />
         );
+      } else if (shape === 'diamond') {
+        toppings.push(
+          <polygon
+            key={toppingIndex}
+            points={`${x},${y - size} ${x + size},${y} ${x},${y + size} ${x - size},${y}`}
+            fill={isExploding ? '#8B0000' : colorInfo.color}
+            opacity={isExploding ? "0.9" : "0.85"}
+            className={`${toppingAnimation || isExploding ? 'animate-bounce' : ''}`}
+            style={{
+              filter: pizzaGlow || isExploding ? 'drop-shadow(0 0 8px currentColor)' : 'none',
+              animationDelay: `${Math.random() * 2}s`
+            }}
+          />
+        );
+      } else if (shape === 'heart') {
+        // Approximate heart shape with path
+        toppings.push(
+          <path
+            key={toppingIndex}
+            d={`M ${x} ${y} 
+                C ${x + size} ${y - size * 0.5} ${x + size * 1.5} ${y + size * 0.5} ${x} ${y + size} 
+                C ${x - size * 1.5} ${y + size * 0.5} ${x - size} ${y - size * 0.5} ${x} ${y}`}
+            fill={isExploding ? '#8B0000' : colorInfo.color}
+            opacity={isExploding ? "0.9" : "0.85"}
+            className={`${toppingAnimation || isExploding ? 'animate-bounce' : ''}`}
+            style={{
+              filter: pizzaGlow || isExploding ? 'drop-shadow(0 0 8px currentColor)' : 'none',
+              animationDelay: `${Math.random() * 2}s`
+            }}
+            transform={`translate(${x}, ${y}) scale(${size / 10})`}
+          />
+        );
       }
       toppingIndex++;
     }
@@ -342,47 +376,45 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4 relative">
+    <div className="flex flex-col space-y-4 relative w-full">
       {/* EXPLOSION OVERLAY - COVERS EVERYTHING */}
-{/* EXPLOSION OVERLAY - COVERS EVERYTHING */}
-{showExplosion && (
-  <div className="absolute inset-0 z-50 pointer-events-none">
-    {/* Explosion background */}
-    <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 opacity-30 animate-pulse"></div>
-    
-    {/* Flying moyaki_hot images */}
-    {Array.from({ length: 20 }, (_, i) => (
-      <div
-        key={i}
-        className="absolute animate-bounce"
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-          animationDelay: `${Math.random() * 2}s`,
-          animationDuration: `${0.5 + Math.random()}s`
-        }}
-      >
-        <img 
-          src="/moyaki_hot.webp"
-          alt="Moyaki Hot"
-          className="w-12 h-12"
-          style={{
-            filter: 'drop-shadow(0 0 5px rgba(255, 0, 0, 0.8))',
-            transform: `rotate(${Math.random() * 360}deg)` // Random rotation
-          }}
-        />
-      </div>
-    ))}
-  </div>
-)}
-
+      {showExplosion && (
+        <div className="absolute inset-0 z-50 pointer-events-none">
+          {/* Explosion background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 opacity-30 animate-pulse"></div>
+          
+          {/* Flying moyaki_hot images - Responsive count */}
+          {Array.from({ length: typeof window !== 'undefined' && window.innerWidth < 768 ? 10 : 20 }, (_, i) => (
+            <div
+              key={i}
+              className="absolute animate-bounce"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${0.5 + Math.random()}s`
+              }}
+            >
+              <img 
+                src="/moyaki_hot.webp"
+                alt="Moyaki Hot"
+                className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12"
+                style={{
+                  filter: 'drop-shadow(0 0 5px rgba(255, 0, 0, 0.8))',
+                  transform: `rotate(${Math.random() * 360}deg)` // Random rotation
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Header with rotating flavor - WITH OVERLAY CAPABILITY */}
-      <div className="text-center relative">
+      <div className="text-center relative px-2">
         {/* WTF Message Overlay - OVERLAYS THE HEADER */}
         {showWtfMessage && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
-            <div className={`font-black px-6 py-3 rounded-full text-lg animate-bounce shadow-2xl border-4 border-white whitespace-nowrap ${
+            <div className={`font-black px-3 py-2 sm:px-6 sm:py-3 rounded-full text-sm sm:text-lg animate-bounce shadow-2xl border-2 sm:border-4 border-white whitespace-nowrap backdrop-blur-md ${
               isExploding 
                 ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white animate-pulse' 
                 : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black'
@@ -392,36 +424,21 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
           </div>
         )}
         
-        <h3 className="text-lg font-semibold text-white mb-2 flex items-center justify-center space-x-2 relative">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-2 flex items-center justify-center space-x-2 relative">
           <span className="animate-pulse">🍕</span>
-          <span>{isExploding ? 'PIZZA EXPLOSION!!!' : 'MONAD PIZZA MADNESS'}</span>
+          <span className="text-center">{isExploding ? 'PIZZA EXPLOSION!!!' : 'MONAD PIZZA MADNESS'}</span>
           <span className="animate-pulse">🍕</span>
-          
-          {/* Frens Band GIF at 150%+
-          {wtfLevel >= 100 && !isExploding && (
-            <div className="absolute -top-4 -right-20 z-20">               
-            <img 
-                src="/frens_band.gif" 
-                alt="Frens Band" 
-                className="w20 h-20 animate-bounce"
-                style={{ 
-                  filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.5))',
-                  animationDuration: '0.8s'
-                }}
-              />
-            </div>
-          )} */}
         </h3>
 
-        <div className="text-sm text-purple-300 font-medium animate-pulse">
+        <div className="text-xs sm:text-sm text-purple-300 font-medium animate-pulse">
           {isExploding ? '💥 BURNT TO CRISP! 💥' : pizzaFlavors[currentFlavor]}
         </div>
       </div>
 
-      {/* Pizza and Legend Side by Side */}
-      <div className="flex items-start space-x-6">
-        {/* CRAZY Pizza - WITH EXPLOSION EFFECTS */}
-        <div className="flex-shrink-0 relative">
+      {/* Pizza and Legend - Responsive Layout */}
+      <div className="flex flex-col lg:flex-row items-start space-y-6 lg:space-y-0 lg:space-x-6 w-full">
+        {/* CRAZY Pizza - WITH EXPLOSION EFFECTS - Responsive Container */}
+        <div className="flex-shrink-0 relative w-full lg:w-auto flex justify-center">
           <div 
             className={`cursor-pointer transition-all duration-500 ${
               isSpinning || isExploding ? 'animate-spin' : 'hover:scale-105'
@@ -435,14 +452,20 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 : 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
             }}
           >
-            <svg width={pizzaSize} height={pizzaSize} style={{ background: 'none' }}>
-              {/* Pizza base - BURNT when exploding */}
+            <svg 
+              width={pizzaSize} 
+              height={pizzaSize} 
+              style={{ background: 'none' }}
+              className="max-w-full h-auto"
+              viewBox={`0 0 ${pizzaSize} ${pizzaSize}`}
+            >
+              {/* Pizza base - Keep original color theme */}
               <circle
                 cx={pizzaSize / 2}
                 cy={pizzaSize / 2}
                 r={pizzaSize / 2 - 8}
-                fill={isExploding ? '#2D1B00' : '#f6e05e'} // Dark burnt color when exploding
-                stroke={isExploding ? '#8B0000' : '#d69e2e'} // Dark red stroke when exploding
+                fill={isExploding ? '#2D1B00' : '#f6e05e'} // Keep original colors
+                stroke={isExploding ? '#8B0000' : '#d69e2e'}
                 strokeWidth="8"
                 className={isExploding ? 'animate-pulse' : ''}
               />
@@ -478,9 +501,9 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
           </div>
         </div>
 
-        {/* Enhanced Legend with WTF elements */}
-        <div className="flex-1 min-w-[200px]">
-          <h4 className="text-white font-medium mb-2 text-sm flex items-center space-x-2">
+        {/* Legend with original theme colors, no purple */}
+        <div className="flex-1 w-full lg:min-w-[200px]">
+          <h4 className="text-white font-medium mb-2 text-sm flex items-center justify-center lg:justify-start space-x-2">
             <span className="animate-bounce">🎯</span>
             <span>TX Types (I have no ideas what I&#39;m doing)</span>
           </h4>
@@ -494,12 +517,12 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 return (
                   <div 
                     key={type}
-                    className={`flex items-center justify-between py-1 hover:bg-white/5 rounded px-2 transition-all duration-300 ${
+                    className={`flex items-center justify-between py-1 hover:bg-purple-500/10 rounded px-2 transition-all duration-300 ${
                       count > 0 || isExploding ? 'animate-pulse' : ''
                     }`}
                     style={{ animationDelay: `${index * 0.2}s` }}
                   >
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <div 
                         className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse"
                         style={{ 
@@ -507,18 +530,18 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                           boxShadow: `0 0 8px ${isExploding ? '#8B0000' : colorInfo.color}50`
                         }}
                       ></div>
-                      <span className="text-xs text-white font-medium flex items-center space-x-1">
-                        <span className="animate-bounce" style={{ animationDelay: `${index * 0.1}s` }}>
+                      <span className="text-xs text-white font-medium flex items-center space-x-1 truncate">
+                        <span className="animate-bounce flex-shrink-0" style={{ animationDelay: `${index * 0.1}s` }}>
                           {isExploding ? '💀' : colorInfo.wtfIcon}
                         </span>
                         <span>{colorInfo.name}</span>
                       </span>
                     </div>
-                    <div className="text-right flex items-center space-x-1">
+                    <div className="text-right flex items-center space-x-1 flex-shrink-0">
                       <span className="text-xs font-bold text-white mr-1">{count}</span>
-                      <span className="text-xs text-purple-300">({percentage}%)</span>
+                      <span className="text-xs text-purple-300 hidden sm:inline">({percentage}%)</span>
                       {count > 0 && (
-                        <span className="text-xs text-yellow-400 font-black animate-pulse">
+                        <span className="text-xs text-yellow-400 font-black animate-pulse hidden md:inline">
                           {isExploding ? 'BOOM!' : colorInfo.sound}
                         </span>
                       )}
@@ -528,8 +551,8 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               })}
           </div>
           
-          {/* WTF Activity Meter - KEEPING OLD STYLE */}
-          <div className={`mt-3 p-3 rounded-lg border relative overflow-hidden ${
+          {/* WTF Activity Meter - Responsive */}
+          <div className={`mt-3 p-3 rounded-lg border relative overflow-hidden backdrop-blur-md ${
             isExploding 
               ? 'bg-gradient-to-r from-red-500/30 to-orange-500/30 border-red-500/50' 
               : 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30'
@@ -538,7 +561,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
             <div className={`absolute inset-0 animate-pulse ${
               isExploding 
                 ? 'bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10' 
-                : 'bg-gradient-to-r from-transparent via-white/5 to-transparent'
+                : 'bg-gradient-to-r from-transparent via-purple-500/5 to-transparent'
             }`}></div>
             
             <div className="relative z-10">
@@ -560,7 +583,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 </span>
               </div>
               
-              {/* OLD STYLE Crazy activity bars */}
+              {/* Crazy activity bars - No purple theme */}
               <div className="flex items-center space-x-1">
                 {Array.from({ length: 10 }, (_, i) => {
                   const isActive = i < Math.min(10, Math.ceil((totalTx / maxTx) * 10));
@@ -584,27 +607,26 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 })}
               </div>
               
-              {/* Pizza stats with WTF elements - MAGIC SHOWS REAL PERCENTAGE */}
+              {/* Pizza stats with WTF elements - Keep original theme, no purple */}
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center space-x-1">
-                <span className="animate-spin">{isExploding ? '💥' : '🌟'}</span>
+                <div className="flex items-center space-x-1 justify-center sm:justify-start">
+                  <span className="animate-spin">{isExploding ? '💥' : '🌟'}</span>
                   <span className="text-purple-200">Cookin&#39;:</span>
                   <span className={`font-bold ${
                     isExploding ? 'text-red-400' : 'text-yellow-400'
                   }`}>{wtfLevel}%</span>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1 justify-center sm:justify-start">
                   <span className="animate-bounce">⛽</span>
                   <span className="text-purple-200">Gas Heat:</span>
                   <span className="text-orange-400 font-bold">{gasHeatFactor}</span>
-              </div>
-
+                </div>
               </div>
               
-              {/* Random WTF facts */}
+              {/* Random WTF facts - No purple theme */}
               <div className="mt-2 text-xs text-center">
                 <span className={`animate-pulse ${
-                  isExploding ? 'text-red-300' : 'text-purple-300'
+                  isExploding ? 'text-red-300' : 'text-green-300'
                 }`}>
                   {isExploding ? "💥 PIZZA OVERLOAD! SYSTEM MELTDOWN! 💥" :
                    wtfLevel >= 200 ? "🚨 DANGER ZONE! PIZZA ABOUT TO EXPLODE! 🚨" :
@@ -617,46 +639,45 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               </div>
             </div>
           </div>
-          
-          {/* Extra WTF Stats */}
-          <div className="mt-2 text-xs text-center space-y-1">
-            <div className="flex justify-center items-center space-x-2 text-purple-300">
-              <span className="animate-bounce">{isExploding ? '💀' : '🎲'}</span>
-              <span>Ayo no Cap: This pizza has {toppingCount} toppings!</span>
-              <span className="animate-bounce">{isExploding ? '💀' : '🎲'}</span>
-            </div>
-            
-            {totalTx > 0 && (
-              <div className={`flex justify-center items-center space-x-2 font-bold animate-pulse ${
-                isExploding ? 'text-red-400' : 'text-yellow-400'
-              }`}>
-                <span>{isExploding ? '💥' : '🎉'}</span>
-                <span>{isExploding ? `BOOM! ${totalTx} transactions = EXPLOSION!` : `WOW! ${totalTx} transactions = MUCH WOW!`}</span>
-                <span>{isExploding ? '💥' : '🎉'}</span>
+              {/* Extra WTF Stats - No purple theme, keep original colors */}
+              <div className="mt-2 text-xs text-center space-y-1">
+                <div className="flex justify-center items-center space-x-2 text-green-300">
+                  <span className="animate-bounce">{isExploding ? '💀' : '🎲'}</span>
+                  <span>Ayo no Cap: This pizza has {toppingCount} toppings!</span>
+                  <span className="animate-bounce">{isExploding ? '💀' : '🎲'}</span>
+                </div>
+                
+                {totalTx > 0 && (
+                  <div className={`flex justify-center items-center space-x-2 font-bold animate-pulse ${
+                    isExploding ? 'text-red-400' : 'text-yellow-400'
+                  }`}>
+                    <span>{isExploding ? '💥' : '🎉'}</span>
+                    <span>{isExploding ? `BOOM! ${totalTx} transactions = EXPLOSION!` : `WOW! ${totalTx} transactions = MUCH WOW!`}</span>
+                    <span>{isExploding ? '💥' : '🎉'}</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          </div>
+          
+          {/* Floating WTF elements - No purple, keep original colors */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {(totalTx > 100 || isExploding) && Array.from({ length: isExploding ? (typeof window !== 'undefined' && window.innerWidth < 768 ? 5 : 10) : (typeof window !== 'undefined' && window.innerWidth < 768 ? 2 : 3) }, (_, i) => (
+              <div
+                key={i}
+                className="absolute animate-bounce text-lg sm:text-2xl"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${0.5 + Math.random() * 2}s`
+                }}
+              >
+                {isExploding ? ['💥', '🔥', '💀', '⚡', '🚨'][i % 5] : ['🚀', '⚡', '🔥'][i]}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-      
-      {/* Floating WTF elements - MORE when exploding */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {(totalTx > 100 || isExploding) && Array.from({ length: isExploding ? 10 : 3 }, (_, i) => (
-          <div
-            key={i}
-            className="absolute animate-bounce text-2xl"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${0.5 + Math.random() * 2}s`
-            }}
-          >
-            {isExploding ? ['💥', '🔥', '💀', '⚡', '🚨'][i % 5] : ['🚀', '⚡', '🔥'][i]}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+      );
 }
 

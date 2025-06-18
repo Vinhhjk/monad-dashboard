@@ -83,7 +83,7 @@ export function SevenDayChart() {
 
   if (loading) {
     return (
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+      <div className="bg-purple-900/20 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-purple-500/30 shadow-xl shadow-purple-500/10 h-[160px] sm:h-[200px] flex flex-col justify-between">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
             <span className="text-2xl">📈</span>
@@ -99,7 +99,8 @@ export function SevenDayChart() {
   }
 
   return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-xl">
+    // Wrap the chart in a glass-like container
+    <div className="bg-purple-900/20 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-purple-500/30 shadow-xl shadow-purple-500/10  flex flex-col">
       <div className="flex items-center space-x-3 mb-4">
         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
           <span className="text-2xl">📈</span>

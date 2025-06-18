@@ -8,7 +8,6 @@ interface TransactionChartProps {
   totalFees?: number;
 }
 
-
 // Custom tooltip with proper typing
 interface TooltipProps {
   active?: boolean;
@@ -25,7 +24,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     // Ensure we display the exact integer value, not interpolated
     const value = Math.round(payload[0].value);
     return (
-      <div className="bg-purple-900/95 backdrop-blur-sm border border-purple-500/30 rounded-xl p-4 shadow-2xl">
+      <div className="bg-purple-900/95 backdrop-blur-md border border-purple-400/50 rounded-xl p-4 shadow-2xl shadow-purple-500/20">
         <p className="text-purple-200 text-sm font-medium">Block #{label}</p>
         <div className="flex items-center space-x-2 mt-2">
           <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
@@ -70,9 +69,9 @@ export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartP
           </div>
           
           {/* Total Fees Counter */}
-          <div className="flex items-center space-x-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 px-3 py-1 rounded-full border border-orange-500/30">
-            <span className="text-orange-400 text-sm">⛽</span>
-            <span className="text-orange-300 text-sm font-medium">
+          <div className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm px-3 py-1 rounded-full border border-purple-400/30">
+            <span className="text-purple-300 text-sm">⛽</span>
+            <span className="text-purple-200 text-sm font-medium">
               Gas used: {totalFees.toFixed(4)} MON
             </span>
           </div>
@@ -80,7 +79,7 @@ export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartP
         {/* Chart container with modern styling */}
         <div className="relative">
           {/* Background grid effect */}
-          <div className="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent rounded-xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-purple-500/10 to-transparent rounded-xl backdrop-blur-sm"></div>
           
           <div className="relative h-80 p-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -90,14 +89,14 @@ export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartP
               >
                 <defs>
                   <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                    <stop offset="30%" stopColor="#a855f7" stopOpacity={0.6} />
+                    <stop offset="0%" stopColor="#a855f7" stopOpacity={0.8} />
+                    <stop offset="30%" stopColor="#8b5cf6" stopOpacity={0.6} />
                     <stop offset="70%" stopColor="#c084fc" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0.1} />
                   </linearGradient>
                   <linearGradient id="strokeGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#8b5cf6" />
-                    <stop offset="50%" stopColor="#a855f7" />
+                    <stop offset="0%" stopColor="#a855f7" />
+                    <stop offset="50%" stopColor="#8b5cf6" />
                     <stop offset="100%" stopColor="#ec4899" />
                   </linearGradient>
                 </defs>
@@ -134,7 +133,7 @@ export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartP
                   dot={false} // No dots for clean look
                   activeDot={{ 
                     r: 6, 
-                    fill: '#8b5cf6', 
+                    fill: '#a855f7', 
                     stroke: '#ffffff', 
                     strokeWidth: 2 
                   }}
@@ -148,7 +147,7 @@ export function TransactionChart({ chartData, totalFees = 0 }: TransactionChartP
           </div>
           
           {/* Bottom stats bar */}
-          <div className="flex items-center justify-between mt-4 px-4 py-2 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center justify-between mt-4 px-4 py-2 bg-purple-900/20 backdrop-blur-sm rounded-lg border border-purple-500/30">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
