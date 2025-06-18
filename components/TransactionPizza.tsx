@@ -214,7 +214,12 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
 
   const [pizzaSize, setPizzaSize] = useState(getResponsivePizzaSize());
 
-  // Update pizza size on window resize
+  // FIXED: Update pizza size when totalTx changes OR window resizes
+  useEffect(() => {
+    setPizzaSize(getResponsivePizzaSize());
+  }, [totalTx, maxTx]); // This will trigger when totalTx changes
+
+  // FIXED: Update pizza size on window resize
   useEffect(() => {
     const handleResize = () => {
       setPizzaSize(getResponsivePizzaSize());
@@ -222,7 +227,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [totalTx, maxTx]);
+  }, [totalTx, maxTx]); // Include totalTx and maxTx as dependencies
 
 
   // Check for pizza explosion when over 210%
@@ -318,8 +323,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
       const radius = (pizzaSize / 2) * 0.7 * Math.sqrt(Math.random());
       const x = pizzaSize / 2 + radius * Math.cos(angle);
       const y = pizzaSize / 2 + radius * Math.sin(angle);
-      const size = 8 + Math.random() * 6;
-      
+      const size = pizzaSize < 180 ? 4 + Math.random() * 3 : 8 + Math.random() * 6;      
       //topping shapes!
       const shapes = ['circle', 'star', 'diamond', 'heart'];
       const shape = shapes[Math.floor(Math.random() * shapes.length)];
