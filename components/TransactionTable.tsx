@@ -147,7 +147,7 @@ export function TransactionTable({ transactions, onMouseEnter, onMouseLeave }: T
                   )}
                 </div>
 
-                {/* Desktop Layout - Original */}
+                {/* Desktop Layout */}
                 <div className="hidden sm:block">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3">

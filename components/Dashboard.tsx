@@ -23,7 +23,6 @@ export function Dashboard() {
     const [totalTxs, setTotalTxs] = useState<string>('Loading...');
     const [lastQueriedBlock, setLastQueriedBlock] = useState<string>('Loading...');
     const [totalFeesLast10Blocks, setTotalFeesLast10Blocks] = useState<number>(0)
-    // TPS related state
     const [currentTPS, setCurrentTPS] = useState<number>(0);
     const [avgTPS, setAvgTPS] = useState<number>(0);
     const tpsHistory = useRef<Array<{ timestamp: number; txCount: number; blockTime: number }>>([]);
@@ -50,7 +49,7 @@ export function Dashboard() {
         tpsHistory.current.push({
             timestamp: blockTimestamp * 1000, // Convert to milliseconds
             txCount,
-            blockTime: 0 // We'll calculate this differently
+            blockTime: 0
         });
     
         // Keep only last 10 blocks for calculation

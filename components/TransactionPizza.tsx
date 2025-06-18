@@ -551,7 +551,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               })}
           </div>
           
-          {/* WTF Activity Meter - Responsive */}
+          {/* Activity Meter - Responsive */}
           <div className={`mt-3 p-3 rounded-lg border relative overflow-hidden backdrop-blur-md ${
             isExploding 
               ? 'bg-gradient-to-r from-red-500/30 to-orange-500/30 border-red-500/50' 
@@ -583,7 +583,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 </span>
               </div>
               
-              {/* Crazy activity bars - No purple theme */}
+              {/* activity bars */}
               <div className="flex items-center space-x-1">
                 {Array.from({ length: 10 }, (_, i) => {
                   const isActive = i < Math.min(10, Math.ceil((totalTx / maxTx) * 10));
@@ -607,7 +607,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 })}
               </div>
               
-              {/* Pizza stats with WTF elements - Keep original theme, no purple */}
+              {/* Pizza stats with elements */}
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <div className="flex items-center space-x-1 justify-center sm:justify-start">
                   <span className="animate-spin">{isExploding ? '💥' : '🌟'}</span>
@@ -623,7 +623,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
                 </div>
               </div>
               
-              {/* Random WTF facts - No purple theme */}
+              {/* Random facts*/}
               <div className="mt-2 text-xs text-center">
                 <span className={`animate-pulse ${
                   isExploding ? 'text-red-300' : 'text-green-300'
@@ -639,7 +639,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               </div>
             </div>
           </div>
-              {/* Extra WTF Stats - No purple theme, keep original colors */}
+              {/* Extra Stats */}
               <div className="mt-2 text-xs text-center space-y-1">
                 <div className="flex justify-center items-center space-x-2 text-green-300">
                   <span className="animate-bounce">{isExploding ? '💀' : '🎲'}</span>
@@ -660,7 +660,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
             </div>
           </div>
           
-          {/* Floating WTF elements - No purple, keep original colors */}
+          {/* Floating elements*/}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {(totalTx > 100 || isExploding) && Array.from({ length: isExploding ? (typeof window !== 'undefined' && window.innerWidth < 768 ? 5 : 10) : (typeof window !== 'undefined' && window.innerWidth < 768 ? 2 : 3) }, (_, i) => (
               <div

@@ -99,7 +99,6 @@ export function SevenDayChart() {
   }
 
   return (
-    // Wrap the chart in a glass-like container
     <div className="bg-purple-900/20 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-purple-500/30 shadow-xl shadow-purple-500/10  flex flex-col">
       <div className="flex items-center space-x-3 mb-4">
         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
