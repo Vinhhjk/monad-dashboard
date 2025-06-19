@@ -203,23 +203,23 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
     if (typeof window !== 'undefined') {
       const screenWidth = window.innerWidth;
       if (screenWidth < 640) { // Mobile
-        return Math.max(150, Math.min(200, 150 + (totalTx / maxTx) * 50));
+        return Math.max(150, Math.min(250, 150 + (totalTx / maxTx) * 50));
       } else if (screenWidth < 1024) { // Tablet
-        return Math.max(180, Math.min(250, 180 + (totalTx / maxTx) * 70));
+        return Math.max(180, Math.min(350, 180 + (totalTx / maxTx) * 70));
       }
     }
     // Desktop (original size)
-    return Math.max(200, Math.min(300, 200 + (totalTx / maxTx) * 100));
+    return Math.max(200, Math.min(400, 200 + (totalTx / maxTx) * 100));
   };
 
   const [pizzaSize, setPizzaSize] = useState(getResponsivePizzaSize());
 
-  // FIXED: Update pizza size when totalTx changes OR window resizes
+  // Update pizza size when totalTx changes OR window resizes
   useEffect(() => {
     setPizzaSize(getResponsivePizzaSize());
-  }, [totalTx, maxTx]); // This will trigger when totalTx changes
+  }, [totalTx, maxTx]); 
 
-  // FIXED: Update pizza size on window resize
+  // Update pizza size on window resize
   useEffect(() => {
     const handleResize = () => {
       setPizzaSize(getResponsivePizzaSize());
@@ -227,8 +227,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [totalTx, maxTx]); // Include totalTx and maxTx as dependencies
-
+  }, [totalTx, maxTx]);
 
   // Check for pizza explosion when over 210%
   useEffect(() => {
@@ -249,13 +248,13 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
     }
   }, [wtfLevel, isExploding]);
 
-  // Effects based on transaction activity - SLOWER
+  // Effects based on transaction activity
   useEffect(() => {
     if (totalTx > 0) {
       const interval = setInterval(() => {
         setCurrentFlavor(prev => (prev + 1) % pizzaFlavors.length);
         
-        // Random WTF effects - LESS FREQUENT
+        // Random effects
         if (Math.random() > 0.85) {
           setPizzaGlow(true);
           setTimeout(() => setPizzaGlow(false), 1500);
@@ -271,7 +270,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
     }
   }, [totalTx]);
 
-  // Trigger WTF message ONLY when totalTx actually changes significantly
+  // Trigger message ONLY when totalTx actually changes significantly
   useEffect(() => {
     const txDifference = totalTx - lastTotalTx;
     
@@ -324,7 +323,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
       const x = pizzaSize / 2 + radius * Math.cos(angle);
       const y = pizzaSize / 2 + radius * Math.sin(angle);
       const size = pizzaSize < 180 ? 4 + Math.random() * 3 : 8 + Math.random() * 6;      
-      //topping shapes!
+      //topping shapes
       const shapes = ['circle', 'star', 'diamond', 'heart'];
       const shape = shapes[Math.floor(Math.random() * shapes.length)];
       
@@ -435,7 +434,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
       </div>
 
       {/* Pizza and Legend Side by Side */}
-      <div className="flex flex-col lg:flex-row items-start lg:space-x-6 space-y-4 lg:space-y-0 w-full">
+      <div className="flex flex-col lg:flex-row items-center lg:items-start lg:space-x-6 space-y-4 lg:space-y-0 w-full">
         {/* Pizza Container */}
         <div className="flex-shrink-0 relative mx-auto lg:mx-0">
           <div 
@@ -499,9 +498,9 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
           </div>
         </div>
 
-        {/* Enhanced Legend with WTF elements */}
-        <div className="flex-1 min-w-[200px]">
-          <h4 className="text-white font-medium mb-2 text-sm flex items-center space-x-2">
+        {/* Enhanced Legend with elements */}
+        <div className="flex-1 min-w-[200px] w-full max-w-md mx-auto lg:mx-0 lg:max-w-none">
+          <h4 className="text-white font-medium mb-2 text-sm flex items-center justify-center lg:justify-start space-x-2">
             <span className="animate-bounce">🎯</span>
             <span>TX Types (I have no ideas what I&#39;m doing)</span>
           </h4>
@@ -582,7 +581,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               </div>
               
               {/*Crazy activity bars */}
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center justify-center lg:justify-start space-x-1">
                 {Array.from({ length: 10 }, (_, i) => {
                   const isActive = i < Math.min(10, Math.ceil((totalTx / maxTx) * 10));
                   const colors = ['bg-green-400', 'bg-yellow-400', 'bg-orange-400', 'bg-red-400', 'bg-purple-400'];
@@ -607,14 +606,14 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
               
               {/* Pizza stats with elements*/}
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center justify-center lg:justify-start space-x-1">
                 <span className="animate-spin">{isExploding ? '💥' : '🌟'}</span>
                   <span className="text-purple-200">Cookin&#39;:</span>
                   <span className={`font-bold ${
                     isExploding ? 'text-red-400' : 'text-yellow-400'
                   }`}>{wtfLevel}%</span>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center justify-center lg:justify-start space-x-1">
                   <span className="animate-bounce">⛽</span>
                   <span className="text-purple-200">Gas Heat:</span>
                   <span className="text-orange-400 font-bold">{gasHeatFactor}</span>
@@ -659,6 +658,7 @@ export function TransactionPizza({ chartData, latestTxs = [], maxTx = 1000 }: Tr
           </div>
         </div>
       </div>
+
       
       {/* Floating elements - MORE when exploding */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
